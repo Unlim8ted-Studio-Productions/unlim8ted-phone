@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <title>Unlim8ted OS</title>
+    <style>
+        :root {
+            --bg0: #04050a;
+            --bg1: #0a0d16;
+            --bg2: #12182a;
+            --bg3: #1a1430;
+            --ink: rgba(244, 248, 255, 0.97);
+            --ink-soft: rgba(230, 238, 255, 0.74);
+            --ink-dim: rgba(216, 226, 255, 0.48);
+            --shadow-xl: 0 24px 80px rgba(0, 0, 0, 0.46), 0 8px 28px rgba(0, 0, 0, 0.30);
+            --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.36), 0 6px 18px rgba(0, 0, 0, 0.24);
+            --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.24), 0 3px 10px rgba(0, 0, 0, 0.14);
+            --ease-os: cubic-bezier(.2, .9, .2, 1);
+            --ease-snap: cubic-bezier(.3, .7, 0, 1);
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --panel-progress: 0;
+            --sleep-progress: 0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--ink);
+        }
+
+        body {
+            overscroll-behavior: none;
+        }
+
+        .os {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            background:
+                radial-gradient(960px 680px at 12% 12%, rgba(88, 120, 255, 0.17), transparent 58%),
+                radial-gradient(780px 620px at 84% 16%, rgba(40, 224, 255, 0.10), transparent 54%),
+                radial-gradient(920px 760px at 76% 86%, rgba(180, 74, 255, 0.12), transparent 58%),
+                linear-gradient(180deg, #151a2d 0%, #0a0d16 50%, #04050a 100%);
+        }
+
+        .aurora,
+        .mesh,
+        .grain,
+        .ribs,
+        .scan {
+            position: absolute;
+            inset: -8%;
+            pointer-events: none;
+        }
+
+        .aurora {
+            background:
+                radial-gradient(40% 36% at 18% 14%, rgba(116, 171, 255, 0.10), transparent 56%),
+                radial-gradient(34% 28% at 80% 26%, rgba(73, 255, 233, 0.10), transparent 58%),
+                radial-gradient(34% 28% at 70% 78%, rgba(182, 114, 255, 0.11), transparent 58%);
+            filter: blur(28px);
+            animation: auroraShift 22s ease-in-out infinite alternate;
+        }
+
+        .mesh {
+            opacity: 0.16;
+            background:
+                linear-gradient(120deg, transparent 0 47%, rgba(129, 174, 255, 0.05) 48%, transparent 49%),
+                linear-gradient(60deg, transparent 0 45%, rgba(129, 174, 255, 0.035) 46%, transparent 47%);
+            background-size: 180px 180px, 220px 220px;
+            mix-blend-mode: screen;
+            transform: perspective(1000px) rotateX(68deg) translateY(36%);
+            transform-origin: bottom center;
+        }
+
+        .grain {
+            opacity: 0.04;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.7) 0.6px, transparent 0.7px);
+            background-size: 6px 6px;
+        }
+
+        .ribs {
+            opacity: 0.14;
+            background: repeating-linear-gradient(180deg, rgba(140, 180, 255, 0.03) 0 1px, transparent 1px 34px);
+            mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 18%, transparent 80%, rgba(0, 0, 0, 0.7));
+        }
+
+        .scan {
+            opacity: 0.22;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 16%, transparent 84%, rgba(255, 255, 255, 0.02));
+            mix-blend-mode: screen;
+        }
+
+        @keyframes auroraShift {
+            from {
+                transform: translate3d(-2%, -1%, 0) scale(1.02);
+            }
+
+            to {
+                transform: translate3d(2%, 1.5%, 0) scale(1.08);
+            }
+        }
+
+        .statusbar {
+            position: absolute;
+            inset: 0 0 auto 0;
+            z-index: 30;
+            height: calc(var(--safe-top) + 30px);
+            padding: calc(var(--safe-top) + 8px) 14px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            font-size: 13px;
+            font-weight: 680;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+            pointer-events: none;
+            opacity: calc(1 - min(var(--panel-progress), 0.6) * 0.45);
+            transition: opacity 180ms ease;
+        }
+
+        .sb-left,
+        .sb-right {
+            padding: 2px 8px;
+            border: 1px solid rgba(140, 180, 255, 0.14);
+            background: rgba(10, 18, 36, 0.28);
+            clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+            backdrop-filter: blur(12px);
+        }
+
+        .sb-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .wifi {
+            width: 16px;
+            height: 12px;
+            position: relative;
+        }
+
+        .wifi::before,
+        .wifi::after,
+        .wifi span {
+            content: "";
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 1.8px solid rgba(240, 247, 255, 0.95);
+            border-top-color: rgba(240, 247, 255, 0.95);
+            border-left-color: transparent;
+            border-right-color: transparent;
+            border-bottom: none;
+            border-radius: 999px 999px 0 0;
+        }
+
+        .wifi::before {
+            width: 16px;
+            height: 8px;
+            top: 0;
+        }
+
+        .wifi::after {
+            width: 10px;
+            height: 5px;
+            top: 3px;
+        }
+
+        .wifi span {
+            width: 4px;
+            height: 2px;
+            top: 7px;
+            background: rgba(240, 247, 255, 0.95);
+            border: none;
+            border-radius: 999px;
+        }
+
+        .battery {
+            width: 24px;
+            height: 12px;
+            border: 1.7px solid rgba(240, 247, 255, 0.92);
+            border-radius: 2px;
+            position: relative;
+        }
+
+        .battery::after {
+            content: "";
+            position: absolute;
+            right: -3.8px;
+            top: 3px;
+            width: 2.5px;
+            height: 4px;
+            border-radius: 1px;
+            background: rgba(240, 247, 255, 0.92);
+        }
+
+        .battery-level {
+            position: absolute;
+            left: 1.8px;
+            top: 1.8px;
+            bottom: 1.8px;
+            width: 78%;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.98), rgba(165, 228, 255, 0.84));
+        }
+
+        .screen {
+            position: absolute;
+            inset: 0;
+            will-change: transform, opacity;
+            transition: transform 700ms var(--ease-os), opacity 460ms ease;
+        }
+
+        .lockscreen {
+            z-index: 20;
+            display: grid;
+            place-items: center;
+            padding: 80px 24px calc(32px + var(--safe-bottom));
+        }
+
+        .lock-content {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(-6%);
+        }
+
+        .lock-date {
+            color: var(--ink-soft);
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .lock-clock {
+            font-size: clamp(76px, 18vw, 108px);
+            font-weight: 260;
+            line-height: 0.92;
+            letter-spacing: -0.06em;
+            text-shadow: 0 8px 28px rgba(0, 0, 0, 0.24);
+        }
+
+        .lock-brand {
+            margin-top: 12px;
+            color: rgba(184, 205, 255, 0.42);
+            font-size: 11px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 800;
+        }
+
+        .unlock-affordance {
+            position: absolute;
+            left: 50%;
+            bottom: calc(18px + var(--safe-bottom));
+            transform: translateX(-50%);
+            width: min(220px, 66vw);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            color: rgba(228, 238, 255, 0.7);
+            font-size: 12px;
+            font-weight: 620;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .home-indicator {
+            width: 138px;
+            height: 6px;
+            background: linear-gradient(90deg, rgba(110, 180, 255, 0.22), rgba(255, 255, 255, 0.86), rgba(110, 180, 255, 0.22));
+            clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+            box-shadow: 0 0 18px rgba(126, 184, 255, 0.18);
+        }
+
+        .home-screen {
+            z-index: 10;
+            transform: translateY(100%);
+            opacity: 0.98;
+        }
+
+        .home-screen.unlocked {
+            transform: translateY(0);
+        }
+
+        .lockscreen.unlocked {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        .home-shell {
+            position: absolute;
+            inset: 0;
+            transition: transform 220ms ease, filter 220ms ease;
+            will-change: transform, filter;
+        }
+
+        .pages {
+            position: absolute;
+            inset: 0;
+            padding-top: calc(var(--safe-top) + 58px);
+            padding-bottom: calc(var(--safe-bottom) + 128px);
+            display: flex;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            touch-action: pan-x pan-y;
+        }
+
+        .pages::-webkit-scrollbar {
+            display: none;
+        }
+
+        .page {
+            width: 100%;
+            flex: 0 0 100%;
+            scroll-snap-align: start;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 18px 12px;
+            align-content: start;
+        }
+
+        .app {
+            border: 0;
+            background: transparent;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            cursor: pointer;
+            outline: none;
+            appearance: none;
+        }
+
+        .app-icon {
+            position: relative;
+            width: min(18.6vw, 74px);
+            height: min(18.6vw, 74px);
+            border-radius: 20px;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(154, 195, 255, 0.12), rgba(154, 195, 255, 0.02));
+            border: 1px solid rgba(140, 186, 255, 0.15);
+            box-shadow: var(--shadow-lg);
+            transition: transform 140ms ease, box-shadow 180ms ease, filter 180ms ease;
+            isolation: isolate;
+            clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+        }
+
+        .app.pressed .app-icon {
+            transform: scale(0.92);
+            box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.26), 0 8px 16px rgba(0, 0, 0, 0.18);
+            filter: brightness(0.98) saturate(1.06);
+        }
+
+        .app-icon::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.03) 32%, rgba(0, 0, 0, 0.08) 100%);
+            pointer-events: none;
+        }
+
+        .app-icon::after {
+            content: "";
+            position: absolute;
+            inset: 1px;
+            z-index: 5;
+            clip-path: inherit;
+            box-shadow: inset 0 1px 0 rgba(200, 228, 255, 0.18), inset 0 -14px 24px rgba(0, 0, 0, 0.08);
+            pointer-events: none;
+        }
+
+        .icon-bg,
+        .icon-shape {
+            position: absolute;
+            inset: 0;
+        }
+
+        .icon-bg {
+            z-index: 1;
+        }
+
+        .icon-shape {
+            z-index: 3;
+        }
+
+        .label {
+            width: 100%;
+            text-align: center;
+            font-size: 11px;
+            line-height: 1.15;
+            font-weight: 650;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 2px;
+            color: rgba(238, 244, 255, 0.94);
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.30);
+        }
+
+        .dock-wrap {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: calc(var(--safe-bottom) + 14px);
+            z-index: 16;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .dock {
+            width: calc(100% - 26px);
+            max-width: 420px;
+            height: 94px;
+            padding: 10px 12px;
+            border: 1px solid rgba(140, 186, 255, 0.18);
+            background:
+                linear-gradient(180deg, rgba(112, 148, 255, 0.12), rgba(112, 148, 255, 0.04)),
+                rgba(7, 12, 24, 0.56);
+            backdrop-filter: blur(26px) saturate(150%);
+            -webkit-backdrop-filter: blur(26px) saturate(150%);
+            box-shadow: var(--shadow-xl);
+            position: relative;
+            pointer-events: auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            align-items: center;
+            clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+        }
+
+        .dock::before {
+            content: "";
+            position: absolute;
+            top: 1px;
+            left: 16px;
+            right: 16px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(181, 218, 255, 0.34), transparent);
+            opacity: 0.84;
+        }
+
+        .dock .app {
+            gap: 0;
+        }
+
+        .dock .label {
+            display: block;
+        }
+
+        .dock .app-icon {
+            width: 66px;
+            height: 66px;
+            border-radius: 18px;
+            margin: 0 auto;
+        }
+
+        .page-dots {
+            position: absolute;
+            left: 50%;
+            bottom: calc(var(--safe-bottom) + 118px);
+            transform: translateX(-50%);
+            z-index: 16;
+            display: flex;
+            gap: 8px;
+            opacity: calc(1 - min(var(--panel-progress), 0.9) * 0.55);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: rgba(166, 193, 255, 0.24);
+            clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+            transition: transform 260ms var(--ease-snap), background 220ms ease;
+        }
+
+        .dot.active {
+            transform: scale(1.25);
+            background: rgba(240, 247, 255, 0.96);
+        }
+
+        .control-center {
+            position: absolute;
+            inset: 0;
+            z-index: 40;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 180ms ease;
+        }
+
+        .control-center.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .cc-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(2, 6, 14, 0.18);
+            backdrop-filter: blur(calc(8px + (var(--panel-progress) * 16px))) saturate(148%);
+            -webkit-backdrop-filter: blur(calc(8px + (var(--panel-progress) * 16px))) saturate(148%);
+            opacity: calc(0.12 + var(--panel-progress) * 0.88);
+        }
+
+        .cc-sheet {
+            position: absolute;
+            inset: 0;
+            padding: calc(var(--safe-top) + 40px) 16px calc(var(--safe-bottom) + 22px);
+            transform: translateY(-100%);
+            will-change: transform;
+        }
+
+        .cc-panel {
+            width: 100%;
+            max-width: 460px;
+            margin: 0 auto;
+            display: grid;
+            gap: 12px;
+        }
+
+        .cc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 6px 2px;
+        }
+
+        .cc-title {
+            font-size: 18px;
+            font-weight: 760;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .cc-sub {
+            font-size: 12px;
+            font-weight: 620;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+        }
+
+        .cc-grid {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 12px;
+        }
+
+        .tile,
+        .slider,
+        .mini-card {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(140, 186, 255, 0.13);
+            background:
+                linear-gradient(180deg, rgba(108, 149, 255, 0.14), rgba(108, 149, 255, 0.05)),
+                rgba(9, 16, 30, 0.70);
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(22px) saturate(150%);
+            -webkit-backdrop-filter: blur(22px) saturate(150%);
+            clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+        }
+
+        .tile::before,
+        .slider::before,
+        .mini-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(201, 226, 255, 0.16), transparent 34%, transparent 72%, rgba(0, 0, 0, 0.04));
+            pointer-events: none;
+        }
+
+        .tile.large {
+            min-height: 170px;
+            padding: 16px;
+            display: grid;
+            gap: 12px;
+            align-content: start;
+        }
+
+        .tile.small {
+            min-height: 79px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .tile-title {
+            font-size: 14px;
+            font-weight: 760;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .tile-sub {
+            font-size: 11px;
+            color: rgba(222, 232, 255, 0.58);
+            font-weight: 620;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .toggle-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .toggle {
+            min-height: 70px;
+            min-width: 0;
+            max-width: 100%;
+            border: 1px solid rgba(140, 186, 255, 0.10);
+            background: rgba(120, 160, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 12px;
+            color: var(--ink);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: transform 140ms ease, background 180ms ease;
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+            overflow: hidden;
+        }
+
+        .toggle:active {
+            transform: scale(0.97);
+        }
+
+        .toggle.active {
+            background: linear-gradient(180deg, rgba(111, 199, 255, 0.32), rgba(83, 114, 255, 0.16));
+            border-color: rgba(158, 214, 255, 0.18);
+        }
+.toggle {
+    min-height: 70px;
+    min-width: 0;
+
+    padding: 10px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    gap: 6px;
+}
+.toggle-label {
+    width: 100%;
+    text-align: left;
+    line-height: 1.1;
+
+    /* REMOVE truncation */
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+
+    /* Make it responsive */
+    font-size: clamp(9px, 2.5vw, 12px);
+}
+.label {
+    width: 100%;
+    text-align: center;
+
+    font-size: clamp(9px, 2.6vw, 12px);
+    line-height: 1.2;
+
+    /* allow wrapping */
+    white-space: normal;
+
+    /* prevent overflow breaking layout */
+    overflow: hidden;
+    display: -webkit-box;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+        .toggle-pill {
+            flex: 0 0 auto;
+            align-self: flex-end;
+            width: 28px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.16);
+            clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+            position: relative;
+            transition: background 180ms ease;
+        }
+
+        .toggle-pill::after {
+            content: "";
+            position: absolute;
+            left: 2px;
+            top: 2px;
+            width: 12px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.96);
+            clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+            transition: transform 180ms var(--ease-snap);
+        }
+
+        .toggle.active .toggle-pill {
+            background: rgba(255, 255, 255, 0.28);
+        }
+
+        .toggle.active .toggle-pill::after {
+            transform: translateX(12px);
+        }
+
+        .slider {
+            min-height: 90px;
+            padding: 16px;
+            display: grid;
+            gap: 14px;
+        }
+
+        .bar {
+            width: 100%;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.10);
+            overflow: hidden;
+            clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.16);
+        }
+
+        .bar-fill {
+            width: 68%;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(132, 230, 255, 0.84));
+        }
+
+        .mini-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .mini-card {
+            min-height: 92px;
+            padding: 16px;
+            display: grid;
+            align-content: center;
+            gap: 5px;
+        }
+
+        .app-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        .app-view {
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(760px 540px at 18% 14%, rgba(74, 149, 255, 0.12), transparent 56%),
+                linear-gradient(180deg, rgba(12, 17, 28, 0.98), rgba(4, 7, 12, 0.98));
+            transform: translate3d(100%, 0, 0) scale(0.985);
+            opacity: 0;
+            transition: transform 520ms var(--ease-os), opacity 320ms ease;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-view.open {
+            transform: translate3d(0, 0, 0) scale(1);
+            opacity: 1;
+        }
+
+        .app-view.browser-chrome-only .app-top {
+            display: none;
+        }
+
+        .app-view.browser-chrome-only .app-body {
+            padding: calc(var(--safe-top) + 8px) 10px calc(var(--safe-bottom) + 12px);
+        }
+
+        .app-top {
+            padding: calc(var(--safe-top) + 16px) 18px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-title {
+            font-size: 28px;
+            font-weight: 760;
+            letter-spacing: -0.03em;
+            text-transform: uppercase;
+        }
+
+        .close-btn {
+            width: 34px;
+            height: 34px;
+            border: 1px solid rgba(140, 186, 255, 0.14);
+            background: rgba(100, 145, 255, 0.10);
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            backdrop-filter: blur(12px);
+            clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+        }
+
+        .app-body {
+            flex: 1;
+            padding: 8px 18px calc(var(--safe-bottom) + 30px);
+            display: grid;
+            gap: 12px;
+            align-content: start;
+        }
+
+        .os.home-edit .app {
+            animation: homeJiggle 180ms ease-in-out infinite alternate;
+        }
+
+        .os.home-edit .app.selected-edit {
+            transform: scale(0.94);
+            filter: brightness(1.14);
+        }
+
+        @keyframes homeJiggle {
+            from {
+                transform: rotate(-1.2deg);
+            }
+
+            to {
+                transform: rotate(1.2deg);
+            }
+        }
+
+        .content-card {
+            padding: 18px;
+            border: 1px solid rgba(140, 186, 255, 0.12);
+            background: linear-gradient(180deg, rgba(108, 149, 255, 0.12), rgba(108, 149, 255, 0.04));
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(14px);
+            clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+        }
+
+        .content-title {
+            font-size: 14px;
+            font-weight: 760;
+            margin-bottom: 6px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .content-text {
+            font-size: 13px;
+            line-height: 1.5;
+            color: rgba(222, 232, 255, 0.64);
+            max-width: 36ch;
+        }
+
+        .os.sleeping .statusbar,
+        .os.sleeping .screen,
+        .os.sleeping .control-center,
+        .os.sleeping .app-layer,
+        .os.sleeping .branding {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .sleep-screen {
+            position: absolute;
+            inset: 0;
+            z-index: 70;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 14px;
+            padding: 32px 24px;
+            background:
+                radial-gradient(720px 520px at 50% 12%, rgba(86, 122, 255, 0.12), transparent 60%),
+                linear-gradient(180deg, rgba(4, 6, 11, 0.98), rgba(0, 0, 0, 1));
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 280ms ease;
+        }
+
+        .sleep-screen.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .sleep-time {
+            font-size: clamp(72px, 18vw, 112px);
+            font-weight: 240;
+            letter-spacing: -0.06em;
+            line-height: 0.9;
+            text-shadow: 0 16px 42px rgba(0, 0, 0, 0.5);
+        }
+
+        .sleep-sub {
+            color: rgba(228, 238, 255, 0.56);
+            font-size: 12px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            font-weight: 720;
+        }
+
+        .brightness-range {
+            width: 100%;
+            appearance: none;
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.10);
+            outline: none;
+        }
+
+        .brightness-range::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            border: 0;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 0 0 3px rgba(132, 230, 255, 0.18);
+        }
+
+        .brightness-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            color: rgba(222, 232, 255, 0.68);
+            font-size: 12px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            font-weight: 650;
+        }
+
+        .action-btn {
+            width: 100%;
+            min-height: 92px;
+            border: 1px solid rgba(140, 186, 255, 0.12);
+            background: linear-gradient(180deg, rgba(255, 122, 122, 0.18), rgba(108, 149, 255, 0.06));
+            color: var(--ink);
+            padding: 16px;
+            text-align: left;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(14px);
+            clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+        }
+
+        .action-title {
+            font-size: 14px;
+            font-weight: 760;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .action-sub {
+            font-size: 12px;
+            color: rgba(222, 232, 255, 0.62);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .camera-shell {
+            display: grid;
+            gap: 14px;
+        }
+
+        .camera-stage,
+        .system-card {
+            border: 1px solid rgba(140, 186, 255, 0.12);
+            background: linear-gradient(180deg, rgba(108, 149, 255, 0.12), rgba(108, 149, 255, 0.04));
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(14px);
+            clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+        }
+
+        .camera-stage {
+            padding: 12px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .camera-preview-frame {
+            position: relative;
+            overflow: hidden;
+            aspect-ratio: 9 / 16;
+            background: rgba(3, 5, 9, 0.92);
+            clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+        }
+
+        .camera-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .camera-status {
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            padding: 10px 12px;
+            background: rgba(3, 8, 18, 0.62);
+            border: 1px solid rgba(140, 186, 255, 0.14);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(240, 246, 255, 0.92);
+            backdrop-filter: blur(12px);
+        }
+
+        .camera-controls {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .camera-meta {
+            display: grid;
+            gap: 4px;
+        }
+
+        .camera-kicker {
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(222, 232, 255, 0.54);
+            font-weight: 700;
+        }
+
+        .camera-copy {
+            font-size: 14px;
+            line-height: 1.45;
+            color: rgba(232, 240, 255, 0.82);
+        }
+
+        .camera-shutter {
+            width: 88px;
+            height: 88px;
+            border-radius: 999px;
+            border: 6px solid rgba(255, 255, 255, 0.82);
+            background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.98), rgba(214, 225, 255, 0.92));
+            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
+            cursor: pointer;
+        }
+
+        .camera-shutter:active {
+            transform: scale(0.96);
+        }
+
+        .camera-rail {
+            display: grid;
+            grid-template-columns: 88px 1fr;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .camera-thumb {
+            width: 88px;
+            height: 88px;
+            overflow: hidden;
+            border: 1px solid rgba(140, 186, 255, 0.14);
+            background: rgba(255, 255, 255, 0.06);
+            clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+        }
+
+        .camera-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .system-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .branding {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: calc(var(--safe-bottom) + 4px);
+            z-index: 12;
+            text-align: center;
+            font-size: 10px;
+            letter-spacing: 0.24em;
+            text-transform: uppercase;
+            color: rgba(168, 196, 255, 0.24);
+            font-weight: 800;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="os" id="os">
+        <div class="aurora"></div>
+        <div class="mesh"></div>
+        <div class="grain"></div>
+        <div class="ribs"></div>
+        <div class="scan"></div>
+
+        <div class="statusbar">
+            <div class="sb-left">
+                <div id="sbTime">9:41</div>
+            </div>
+            <div class="sb-right">
+                <div class="wifi"><span></span></div>
+                <div class="battery">
+                    <div class="battery-level"></div>
+                </div>
+            </div>
+        </div>
+
+        <section class="screen lockscreen" id="lockscreen">
+            <div class="lock-content">
+                <div class="lock-date" id="lockDate">Thursday, March 26</div>
+                <div class="lock-clock" id="lockClock">9:41</div>
+                <div class="lock-brand">Unlim8ted Studios</div>
+            </div>
+            <div class="unlock-affordance">
+                <div class="home-indicator"></div>
+                <div>Swipe up to unlock</div>
+            </div>
+        </section>
+
+        <section class="screen home-screen" id="homeScreen">
+            <div class="home-shell" id="homeShell">
+                <div class="pages" id="pages">
+                    <div class="page">
+                        <button class="app" data-app="messages" aria-label="Messages">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#7f89ff,#3946ff 78%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:18px;right:18px;top:18px;bottom:18px;border:3px solid rgba(255,255,255,0.92);clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:24px;top:26px;width:16px;height:16px;background:rgba(255,255,255,0.94);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:44px;top:26px;width:4px;height:4px;background:rgba(255,255,255,0.94);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:50px;top:26px;width:4px;height:4px;background:rgba(255,255,255,0.94);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:56px;top:26px;width:4px;height:4px;background:rgba(255,255,255,0.94);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Messages</div>
+                        </button>
+
+                        <button class="app" data-app="camera" aria-label="Camera">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#ffb36a,#ff6b2f 78%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:14px;right:14px;top:22px;bottom:18px;border:3px solid rgba(255,255,255,0.92);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:24px;top:14px;width:16px;height:8px;background:rgba(255,255,255,0.92);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:26px;right:26px;top:32px;bottom:26px;border:4px solid rgba(255,255,255,0.92);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Camera</div>
+                        </button>
+
+                        <button class="app" data-app="gallery" aria-label="Gallery">
+                            <div class="app-icon">
+                                <div class="icon-bg"
+                                    style="background:linear-gradient(145deg,#ff9e5f,#ff4d8d 58%,#7d62ff);"></div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:16px;right:16px;top:16px;bottom:16px;border:3px solid rgba(255,255,255,0.86);clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:24px;right:24px;top:24px;bottom:24px;background:rgba(255,255,255,0.2);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:18px;top:18px;width:14px;height:14px;background:#fff4b0;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Gallery</div>
+                        </button>
+
+                        <button class="app" data-app="browser" aria-label="Browser">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#3ee8ff,#1e7bff 78%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:18px;right:18px;top:18px;bottom:18px;border:3px solid rgba(255,255,255,0.84);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:35px;top:18px;width:4px;height:38px;background:rgba(255,255,255,0.9);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:18px;top:35px;width:38px;height:4px;background:rgba(255,255,255,0.9);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Browser</div>
+                        </button>
+
+                        <button class="app" data-app="music" aria-label="Music">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#ff8c6b,#ff2f63 76%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:34px;top:16px;width:5px;height:28px;background:rgba(255,255,255,0.94);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:39px;top:16px;width:14px;height:4px;background:rgba(255,255,255,0.94);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:22px;top:42px;width:16px;height:16px;background:rgba(255,255,255,0.94);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:40px;top:34px;width:14px;height:14px;background:rgba(255,255,255,0.94);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Music</div>
+                        </button>
+
+                        <button class="app" data-app="maps" aria-label="Maps">
+                            <div class="app-icon">
+                                <div class="icon-bg"
+                                    style="background:linear-gradient(180deg,#bff0ff,#7bd5ff 42%,#66c56f 42%,#3ea559);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:14px;top:0;bottom:0;width:4px;background:rgba(255,255,255,0.28);transform:skewX(-18deg);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:34px;top:0;bottom:0;width:4px;background:rgba(255,255,255,0.24);transform:skewX(18deg);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:26px;top:18px;width:18px;height:18px;background:#ff546d;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:30px;top:22px;width:10px;height:10px;background:white;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Maps</div>
+                        </button>
+
+                        <button class="app" data-app="mail" aria-label="Mail">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#6db7ff,#2f63ff 76%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:14px;right:14px;top:18px;bottom:18px;border:3px solid rgba(255,255,255,0.94);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:18px;right:18px;top:22px;height:18px;border-top:3px solid rgba(255,255,255,0.94);transform:skewY(18deg);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:18px;right:18px;top:22px;height:18px;border-top:3px solid rgba(255,255,255,0.94);transform:skewY(-18deg);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Mail</div>
+                        </button>
+
+                        <button class="app" data-app="notes" aria-label="Notes">
+                            <div class="app-icon">
+                                <div class="icon-bg"
+                                    style="background:linear-gradient(180deg,#ffe68c,#ffd14d 30%,#f4efdf 30%,#e8e1c6 100%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:16px;right:16px;top:20px;bottom:14px;border:2px solid rgba(0,0,0,0.10);background:rgba(255,255,255,0.22);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:22px;right:22px;top:30px;height:2px;background:rgba(0,0,0,0.18);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:22px;right:28px;top:40px;height:2px;background:rgba(0,0,0,0.14);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:22px;right:34px;top:50px;height:2px;background:rgba(0,0,0,0.12);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Notes</div>
+                        </button>
+                    </div>
+
+                    <div class="page">
+                        <button class="app" data-app="clock" aria-label="Clock">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#2f3749,#0e1219 76%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:16px;right:16px;top:16px;bottom:16px;border:3px solid rgba(255,255,255,0.9);transform:rotate(45deg);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:36px;top:24px;width:3px;height:18px;background:white;">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:36px;top:36px;width:14px;height:3px;background:white;">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:34px;top:34px;width:7px;height:7px;background:white;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Clock</div>
+                        </button>
+                        <button class="app" data-app="files" aria-label="Files">
+                            <div class="app-icon">
+                                <div class="icon-bg"
+                                    style="background:linear-gradient(145deg,#76bfff,#aecfff 40%,#3162ff);"></div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:18px;right:18px;top:24px;bottom:18px;border:3px solid rgba(255,255,255,0.94);clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:22px;top:16px;width:22px;height:10px;border:3px solid rgba(255,255,255,0.94);border-bottom:none;clip-path:polygon(6px 0,100% 0,100% 100%,0 100%,0 6px);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Files</div>
+                        </button>
+                        <button class="app" data-app="store" aria-label="Store">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#8b72ff,#63a7ff 80%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:18px;right:18px;top:26px;bottom:18px;border:3px solid rgba(255,255,255,0.94);clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:28px;right:28px;top:16px;height:12px;border:3px solid rgba(255,255,255,0.94);border-bottom:none;clip-path:polygon(6px 0,100% 0,100% 100%,0 100%,0 6px);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Store</div>
+                        </button>
+                        <button class="app" data-app="settings" aria-label="Settings">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#8891a4,#444d61 76%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:18px;top:18px;width:38px;height:38px;border:6px solid rgba(255,255,255,0.92);transform:rotate(45deg);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:31px;top:31px;width:12px;height:12px;background:rgba(255,255,255,0.92);transform:rotate(45deg);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:34px;top:10px;width:6px;height:12px;background:rgba(255,255,255,0.92);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:34px;bottom:10px;width:6px;height:12px;background:rgba(255,255,255,0.92);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:10px;top:34px;width:12px;height:6px;background:rgba(255,255,255,0.92);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;right:10px;top:34px;width:12px;height:6px;background:rgba(255,255,255,0.92);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Settings</div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="page-dots" id="pageDots">
+                    <div class="dot active"></div>
+                    <div class="dot"></div>
+                </div>
+
+                <div class="dock-wrap">
+                    <div class="dock">
+                        <button class="app" data-app="phone" aria-label="Phone">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#5af0c8,#0f9e8a 78%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:24px;right:24px;top:16px;bottom:16px;border:4px solid rgba(255,255,255,0.94);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:30px;right:30px;top:22px;height:4px;background:rgba(255,255,255,0.94);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:34px;right:34px;bottom:22px;height:4px;background:rgba(255,255,255,0.72);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Phone</div>
+                        </button>
+                        <button class="app" data-app="messages" aria-label="Messages">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#7f89ff,#3946ff 78%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:18px;right:18px;top:18px;bottom:18px;border:3px solid rgba(255,255,255,0.92);clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:24px;top:26px;width:16px;height:16px;background:rgba(255,255,255,0.94);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:44px;top:26px;width:4px;height:4px;background:rgba(255,255,255,0.94);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:50px;top:26px;width:4px;height:4px;background:rgba(255,255,255,0.94);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:56px;top:26px;width:4px;height:4px;background:rgba(255,255,255,0.94);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Messages</div>
+                        </button>
+                        <button class="app" data-app="browser" aria-label="Browser">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#3ee8ff,#1e7bff 78%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:18px;right:18px;top:18px;bottom:18px;border:3px solid rgba(255,255,255,0.84);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:35px;top:18px;width:4px;height:38px;background:rgba(255,255,255,0.9);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:18px;top:35px;width:38px;height:4px;background:rgba(255,255,255,0.9);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Browser</div>
+                        </button>
+                        <button class="app" data-app="camera" aria-label="Camera">
+                            <div class="app-icon">
+                                <div class="icon-bg" style="background:linear-gradient(145deg,#ffb36a,#ff6b2f 78%);">
+                                </div>
+                                <div class="icon-shape">
+                                    <div
+                                        style="position:absolute;left:14px;right:14px;top:22px;bottom:18px;border:3px solid rgba(255,255,255,0.92);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:24px;top:14px;width:16px;height:8px;background:rgba(255,255,255,0.92);">
+                                    </div>
+                                    <div
+                                        style="position:absolute;left:26px;right:26px;top:32px;bottom:26px;border:4px solid rgba(255,255,255,0.92);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="label">Camera</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="control-center" id="controlCenter" aria-hidden="true">
+            <div class="cc-backdrop" id="ccBackdrop"></div>
+            <div class="cc-sheet" id="ccSheet">
+                <div class="cc-panel">
+                    <div class="cc-header">
+                        <div>
+                            <div class="cc-title">System Panel</div>
+                            <div class="cc-sub">Unlim8ted OS controls</div>
+                        </div>
+                        <div class="cc-sub" id="ccTime">9:41</div>
+                    </div>
+
+                    <div class="cc-grid">
+                        <div class="tile large">
+                            <div>
+                                <div class="tile-title">Connectivity</div>
+                                <div class="tile-sub">Core hardware routes</div>
+                            </div>
+                            <div class="toggle-grid">
+                                <button class="toggle active" data-action="wifi"><span
+                                        class="toggle-label">Wi-Fi</span><span class="toggle-pill"></span></button>
+                                <button class="toggle active" data-action="bluetooth"><span
+                                        class="toggle-label">Bluetooth</span><span class="toggle-pill"></span></button>
+                                <button class="toggle" data-action="airplane"><span
+                                        class="toggle-label">Airplane</span><span class="toggle-pill"></span></button>
+                                <button class="toggle" data-action="focus"><span class="toggle-label">Focus</span><span
+                                        class="toggle-pill"></span></button>
+                            </div>
+                        </div>
+                        <div style="display:grid; gap:12px;">
+                            <div class="tile small">
+                                <div>
+                                    <div class="tile-title">Battery</div>
+                                    <div class="tile-sub">82%</div>
+                                </div>
+                                <div class="battery" style="transform: scale(1.05);">
+                                    <div class="battery-level" style="width:82%"></div>
+                                </div>
+                            </div>
+                            <div class="tile small">
+                                <div>
+                                    <div class="tile-title">Network</div>
+                                    <div class="tile-sub">Unlim8ted Link</div>
+                                </div>
+                                <div class="wifi"><span></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="slider">
+                        <div>
+                            <div class="tile-title">Brightness</div>
+                            <div class="tile-sub">Display luminance</div>
+                        </div>
+                        <input class="brightness-range" id="brightnessRange" type="range" min="5" max="100"
+                            value="68" aria-label="Display brightness" />
+                        <div class="brightness-meta">
+                            <span>Panel output</span>
+                            <span id="brightnessValue">68%</span>
+                        </div>
+                    </div>
+
+                    <div class="mini-row">
+                        <div class="mini-card">
+                            <div class="tile-title">Media</div>
+                            <div class="tile-sub">No playback</div>
+                        </div>
+                        <button class="action-btn" id="sleepButton" type="button">
+                            <div class="action-title">Sleep</div>
+                            <div class="action-sub">Turn the display off and wake with tap, key, or swipe</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="app-layer" id="appLayer">
+            <section class="app-view" id="appView">
+                <div class="app-top">
+                    <div class="app-title" id="appTitle">App</div>
+                    <button class="close-btn" id="closeAppBtn" aria-label="Close app">×</button>
+                </div>
+                <div class="app-body" id="appBody"></div>
+            </section>
+        </div>
+
+        <div class="sleep-screen" id="sleepScreen" aria-hidden="true">
+            <div class="sleep-time" id="sleepTime">9:41</div>
+            <div class="sleep-sub">Tap, click, or press a key to wake</div>
+        </div>
+
+        <div class="branding">Unlim8ted Studios</div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+
+</html>

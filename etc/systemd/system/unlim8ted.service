@@ -1,0 +1,14 @@
+﻿[Unit]
+Description=Unlim8ted OS
+After=network.target graphical.target systemd-user-sessions.service
+Wants=graphical.target
+
+[Service]
+EnvironmentFile=-/etc/default/unlim8ted
+ExecStart=/usr/bin/python3 /opt/unlim8ted/backend/main.py
+Restart=always
+User=root
+
+[Install]
+WantedBy=graphical.target
+

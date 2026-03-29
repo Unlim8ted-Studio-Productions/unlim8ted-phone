@@ -1,0 +1,11 @@
+[all]
+# Waveshare 6.25 inch DSI LCD and CM4-NANO-C camera baseline
+dtoverlay=vc4-kms-v3d
+
+# Enable CSI explicitly for the CM4-NANO-C carrier. Adjust the overlay if the
+# final module is not IMX219 on CAM0.
+camera_auto_detect=0
+dtoverlay=imx219,cam0
+
+# Reserve enough GPU memory for libcamera preview and chromium kiosk rendering.
+gpu_mem=256

@@ -1,0 +1,20 @@
+{
+  "brightness": 0.68,
+  "camera": {
+    "available": false,
+    "last_capture": "",
+    "last_error": "libcamera tools not installed",
+    "preview_active": false
+  },
+  "display_awake": false,
+  "idle_timeout_sec": 45,
+  "last_interaction": 1774791827.9075286,
+  "last_sleep_reason": "idle",
+  "sleeping": true,
+  "toggles": {
+    "airplane": false,
+    "bluetooth": true,
+    "focus": false,
+    "wifi": true
+  }
+}

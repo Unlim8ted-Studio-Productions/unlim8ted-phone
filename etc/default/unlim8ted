@@ -1,0 +1,11 @@
+# Runtime environment for Unlim8ted OS on CM4-NANO-C hardware
+UNLIM8TED_BROWSER=/usr/bin/chromium-browser
+UNLIM8TED_DISPLAY=:0
+UNLIM8TED_XAUTHORITY=/root/.Xauthority
+
+# Set these after confirming the compositor/X11 output names on device
+UNLIM8TED_WLR_OUTPUT=DSI-1
+UNLIM8TED_XRANDR_OUTPUT=DSI-1
+
+# Override if the panel backlight path differs on the final image
+UNLIM8TED_BACKLIGHT_PATH=/sys/class/backlight/rpi_backlight/brightness
