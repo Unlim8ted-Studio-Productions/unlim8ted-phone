@@ -2,6 +2,8 @@
 
 A CM4-based handheld phone project with hardware, 3D, PCB, and OS work in one repo.
 
+![Unlim8ted Phone components animation](https://raw.githubusercontent.com/Unlim8ted-Studio-Productions/unlim8ted-phone/refs/heads/main/3d/Components.gif)
+
 ## Repo Layout
 
     /
