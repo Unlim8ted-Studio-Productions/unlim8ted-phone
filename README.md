@@ -48,14 +48,14 @@ It includes:
 | 3.7V 3000mAh battery | 1 | $12.49 |
 | 32GB microSD card | 1 | $20.00 |
 | Adafruit USB A to USB C cable (PID 4472) | 1 | $2.95 |
-| 15cm DSI cable | 1 | TBD |
+| 15cm DSI cable | 1 | Included with display |
 
 ### Current known total
 
 **$235.32**  
 Note that this includes the **CM4** 8GB RAM varient which is not necessarily required.
 
-> Final total will be a little higher once the DSI cable price is added, along with any enclosure materials, fasteners, speakers, buttons, and shipping.
+> Final total will be a little higher with the enclosure materials, fasteners, tools, and shipping.
 
 ## Important PCB Note
 
