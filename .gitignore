@@ -1,0 +1,17 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+
+# Unlim8ted OS runtime state
+os/opt/unlim8ted/logs/
+os/opt/unlim8ted/state/captures/
+os/opt/unlim8ted/state/chromium-profile/
+os/opt/unlim8ted/state/*.json
+!os/opt/unlim8ted/state/.gitkeep
+
+# Local desktop session artifacts
+os/root/.vnc/
