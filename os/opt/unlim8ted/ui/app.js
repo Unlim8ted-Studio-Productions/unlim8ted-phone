@@ -69,6 +69,7 @@ const debugToggleBtn = document.getElementById('debugToggleBtn');
 const brightnessRange = document.getElementById('brightnessRange');
 const brightnessValue = document.getElementById('brightnessValue');
 const sleepButton = document.getElementById('sleepButton');
+const restartButton = document.getElementById('restartButton');
 const sleepScreen = document.getElementById('sleepScreen');
 const sleepTime = document.getElementById('sleepTime');
 const toggles = Array.from(document.querySelectorAll('.toggle'));
@@ -748,6 +749,21 @@ async function wakeSystem(reason = 'tap') {
     noteActivity(true);
 }
 
+async function rebootSystem(reason = 'manual') {
+    stopCameraPreview(true);
+    blurKeyboardTarget();
+    lockDevice();
+    closeControlCenter();
+    try {
+        await requestJson('/api/system/reboot', {
+            method: 'POST',
+            body: JSON.stringify({ reason })
+        });
+    } catch (_error) {
+        // The request may drop as the backend exits during reboot.
+    }
+}
+
 async function runAppAction(action, payload = {}) {
     if (!state.appId || state.appId === 'camera') return;
     noteActivity(true);
@@ -1232,6 +1248,7 @@ function bindShellUi() {
     });
 
     sleepButton?.addEventListener('click', () => sleepSystem('button'));
+    restartButton?.addEventListener('click', () => rebootSystem('button'));
     closeAppBtn?.addEventListener('click', () => closeApp());
     ccBackdrop?.addEventListener('click', () => closeControlCenter());
     topConfigHandle?.addEventListener('click', () => openControlCenter());

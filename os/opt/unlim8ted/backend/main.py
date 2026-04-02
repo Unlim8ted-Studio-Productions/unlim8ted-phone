@@ -3,6 +3,7 @@ import mimetypes
 import os
 import platform
 import re
+import shlex
 import shutil
 import socket
 import subprocess
@@ -42,6 +43,7 @@ APP_JS_PATH = os.path.join(BASE_DIR, "ui", "app.js")
 APPS_DIR = os.path.join(BASE_DIR, "apps")
 STATE_PATH = os.path.join(STATE_DIR, "system.json")
 CAPTURES_DIR = os.path.join(STATE_DIR, "captures")
+USER_FILES_DIR = os.path.join(STATE_DIR, "files")
 PREVIEW_PATH = os.path.join(STATE_DIR, "camera-preview.jpg")
 REGISTRY_PATH = os.path.join(BASE_DIR, "commands", "registry.json")
 MEDIA_PREFIX = "/media/captures/"
@@ -277,7 +279,8 @@ class DeviceService:
         self.comms = CommunicationsService(self.store)
         self.accounts = AccountsService(self.store)
         self.media = MediaService(self.store, CAPTURES_DIR)
-        self.files = FilesService([STATE_DIR, BASE_DIR])
+        os.makedirs(USER_FILES_DIR, exist_ok=True)
+        self.files = FilesService([USER_FILES_DIR])
         self.notifications = NotificationsService(self.store)
         self.ui_process = None
         self._restore_hardware_state()
@@ -361,6 +364,34 @@ class DeviceService:
         self.system_state.save()
         return self.get_state()
 
+    def reboot(self, reason="manual"):
+        self.system_state.state["last_sleep_reason"] = f"reboot:{reason}"
+        self.system_state.save()
+        threading.Thread(
+            target=self._perform_reboot,
+            args=(reason,),
+            daemon=True,
+        ).start()
+        return {"ok": True, "queued": True, "reason": reason}
+
+    def _perform_reboot(self, reason):
+        time.sleep(0.25)
+        if platform.system() == "Windows":
+            log(f"[SYSTEM] Reboot requested on Windows: {reason}")
+            return
+
+        reboot_cmd = self.config.get("UNLIM8TED_REBOOT_CMD", "").strip()
+        args = shlex.split(reboot_cmd) if reboot_cmd else ["systemctl", "reboot"]
+        try:
+            subprocess.Popen(
+                args,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            log(f"[SYSTEM] Reboot queued via {' '.join(args)}")
+        except OSError as exc:
+            log(f"[SYSTEM] Reboot failed: {exc}")
+
     def get_state(self):
         state = self.system_state.public_state()
         state["owner"] = self.accounts.state()["owner"]
@@ -397,6 +428,7 @@ class DeviceService:
             "paths": {
                 "base_dir": BASE_DIR,
                 "state_dir": STATE_DIR,
+                "user_files_dir": USER_FILES_DIR,
                 "apps_dir": APPS_DIR,
                 "captures_dir": CAPTURES_DIR,
                 "preview_path": PREVIEW_PATH,
@@ -867,6 +899,10 @@ body {{
             self._send_json(
                 {"ok": True, "system": device_service.set_brightness(brightness)}
             )
+            return
+
+        if path == "/api/system/reboot":
+            self._send_json({"ok": True, "reboot": device_service.reboot(data.get("reason", "manual"))})
             return
 
         if path == "/api/system/activity":

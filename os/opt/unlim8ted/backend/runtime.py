@@ -253,6 +253,9 @@ class FilesService:
     def __init__(self, roots):
         self.roots = [os.path.abspath(root) for root in roots if os.path.exists(root)]
 
+    def _is_hidden(self, name):
+        return str(name or "").startswith(".")
+
     def _safe(self, path):
         try:
             candidate = os.path.abspath(path)
@@ -278,6 +281,8 @@ class FilesService:
             return {"path": target or "", "items": []}
         items = []
         for name in sorted(os.listdir(target)):
+            if self._is_hidden(name):
+                continue
             full = os.path.join(target, name)
             items.append({"name": name, "path": full, "kind": "dir" if os.path.isdir(full) else "file"})
         return {"path": target, "items": items}

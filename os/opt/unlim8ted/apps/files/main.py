@@ -12,7 +12,7 @@ def get_manifest():
 
 
 def _state(context):
-    return context["services"]["accounts"].store.read("files_app", {"path": context["state_dir"], "preview": ""})
+    return context["services"]["accounts"].store.read("files_app", {"path": context["paths"]["user_files_dir"], "preview": ""})
 
 
 def _save(context, value):
@@ -24,7 +24,7 @@ def get_app_payload(context):
     listing = context["services"]["files"].list_dir(state["path"])
     preview = context["services"]["files"].read_text(state["preview"]) if state.get("preview") else ""
     items = []
-    root_path = os.path.abspath(context["state_dir"])
+    root_path = os.path.abspath(context["paths"]["user_files_dir"])
     current_path = os.path.abspath(listing["path"]) if listing["path"] else root_path
     if current_path != root_path:
         items.append({"title": "..", "subtitle": "Parent", "action": "open_path", "value": os.path.dirname(current_path) or root_path})
@@ -33,7 +33,7 @@ def get_app_payload(context):
         "view": "structured",
         "title": "Files",
         "sections": [
-            {"type": "hero", "title": listing["path"], "body": "Rooted file browser"},
+            {"type": "hero", "title": listing["path"], "body": "Personal storage only"},
             {"type": "form", "title": "Create Text File", "action": "create_file", "fields": [{"name": "name", "placeholder": "filename.txt"}, {"name": "body", "placeholder": "File contents"}], "submit_label": "Create"},
             {"type": "form", "title": "Create Folder", "action": "create_folder", "fields": [{"name": "name", "placeholder": "Folder name"}], "submit_label": "Create"},
             {"type": "list", "title": "Entries", "items": items},
@@ -73,3 +73,4 @@ def handle_action(context, action, payload):
                 state["preview"] = ""
             _save(context, state)
     return {"app": get_app_payload(context), "system": context["system"]}
+
