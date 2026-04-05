@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, urlparse
 from runtime import (
     AccountsService,
     AppRegistry,
+    CompanionService,
     CommunicationsService,
     ContactsService,
     FilesService,
@@ -117,6 +118,13 @@ def merge_dict(base, override):
         else:
             merged[key] = value
     return merged
+
+
+def request_bearer_token(handler):
+    header = handler.headers.get("Authorization", "")
+    if header.startswith("Bearer "):
+        return header[7:].strip()
+    return ""
 
 
 class CommandRunner:
@@ -282,6 +290,7 @@ class DeviceService:
         os.makedirs(USER_FILES_DIR, exist_ok=True)
         self.files = FilesService([USER_FILES_DIR])
         self.notifications = NotificationsService(self.store)
+        self.companion = CompanionService(self.store)
         self.ui_process = None
         self._restore_hardware_state()
 
@@ -439,6 +448,7 @@ class DeviceService:
                 "contacts": self.contacts,
                 "communications": self.comms,
                 "accounts": self.accounts,
+                "companion": self.companion,
                 "media": self.media,
                 "files": self.files,
                 "notifications": self.notifications,
@@ -646,6 +656,91 @@ def parse_app_route(path):
     return app_id, "/".join(parts[1:])
 
 
+def parse_companion_route(path):
+    prefix = "/api/companion/"
+    if not path.startswith(prefix):
+        return ""
+    return path[len(prefix) :].strip("/")
+
+
+def _message_direction(owner_name, message):
+    return "outbound" if message.get("sender") == owner_name else "inbound"
+
+
+def build_companion_sync_payload(device_service, device_identity, payload):
+    thread_id = str(payload.get("thread_id", "")).strip()
+    owner = device_service.accounts.state()["owner"]
+    threads = device_service.comms.list_threads()
+    selected = next((item for item in threads if item["id"] == thread_id), threads[0] if threads else None)
+    if selected:
+        device_service.comms.mark_thread_read(selected["id"])
+    refreshed_threads = device_service.comms.list_threads()
+    refreshed_selected = next((item for item in refreshed_threads if selected and item["id"] == selected["id"]), refreshed_threads[0] if refreshed_threads else None)
+    return {
+        "ok": True,
+        "phone": {
+            "phone_id": device_service.companion._state().get("phone_id", "unlim8ted-phone"),
+            "name": owner.get("device_name", "Unlim8ted Phone"),
+        },
+        "session": {
+            "device_id": device_identity.get("device_id", ""),
+            "device_name": device_identity.get("device_name", ""),
+        },
+        "sync": {
+            "global_cursor": str(device_service.comms.sync_version()),
+            "thread_cursor": (
+                refreshed_selected.get("messages", [])[-1].get("timestamp", "")
+                if refreshed_selected and refreshed_selected.get("messages")
+                else ""
+            ),
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+        },
+        "threads": [
+            {
+                "id": item["id"],
+                "title": item["title"],
+                "participants": list(item.get("participants", [])),
+                "unread": int(item.get("unread", 0)),
+                "last_message": (
+                    {
+                        "id": item["messages"][-1].get("id", ""),
+                        "sender": item["messages"][-1].get("sender", ""),
+                        "body": item["messages"][-1].get("body", ""),
+                        "timestamp": item["messages"][-1].get("timestamp", ""),
+                        "status": item["messages"][-1].get("status", ""),
+                        "client_message_id": item["messages"][-1].get("client_message_id", ""),
+                        "direction": _message_direction(owner.get("name", ""), item["messages"][-1]),
+                    }
+                    if item.get("messages")
+                    else {}
+                ),
+            }
+            for item in refreshed_threads
+        ],
+        "conversation": (
+            {
+                "id": refreshed_selected["id"],
+                "title": refreshed_selected["title"],
+                "messages": [
+                    {
+                        "id": message.get("id", ""),
+                        "sender": message.get("sender", ""),
+                        "body": message.get("body", ""),
+                        "timestamp": message.get("timestamp", ""),
+                        "status": message.get("status", ""),
+                        "client_message_id": message.get("client_message_id", ""),
+                        "direction": _message_direction(owner.get("name", ""), message),
+                    }
+                    for message in refreshed_selected.get("messages", [])[-40:]
+                ],
+            }
+            if refreshed_selected
+            else None
+        ),
+        "devices": device_service.companion.list_devices(),
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "Unlim8tedHTTP/1.0"
 
@@ -669,6 +764,182 @@ class Handler(BaseHTTPRequestHandler):
     def _send_json(self, payload, status=200):
         body = json.dumps(payload).encode("utf-8")
         self._send(status=status, content_type="application/json", body=body)
+
+    def _authorize_api(self):
+        expected = str(device_service.config.get("UNLIM8TED_API_TOKEN", "") or "").strip()
+        if not expected:
+            return True
+        client_host = str(self.client_address[0] or "")
+        if client_host in {"127.0.0.1", "::1", "::ffff:127.0.0.1"}:
+            return True
+        provided = (
+            self.headers.get("X-Unlim8ted-Api-Token", "").strip()
+            or request_bearer_token(self)
+        )
+        if provided == expected:
+            return True
+        self._send_json(
+            {
+                "ok": False,
+                "code": "unauthorized",
+                "message": "Missing or invalid API token",
+            },
+            status=401,
+        )
+        return False
+
+    def _authorize_companion_access(self):
+        token = request_bearer_token(self)
+        if not token:
+            self._send_json(
+                {
+                    "ok": False,
+                    "code": "unauthorized",
+                    "message": "Missing companion access token",
+                },
+                status=401,
+            )
+            return None
+        identity = device_service.companion.authenticate_access_token(token)
+        if identity:
+            return identity
+        self._send_json(
+            {
+                "ok": False,
+                "code": "session_expired",
+                "message": "Companion session is invalid or expired",
+            },
+            status=401,
+        )
+        return None
+
+    def _handle_companion_route(self, route, payload):
+        if route == "pairing/create":
+            if not self._authorize_api():
+                return True
+            pairing = device_service.companion.create_pairing_code(payload.get("label", "Companion Device"))
+            self._send_json({"ok": True, "pairing": pairing})
+            return True
+
+        if route == "pair/complete":
+            session = device_service.companion.complete_pairing(
+                payload.get("pairing_code", ""),
+                payload.get("device_name", ""),
+                payload.get("worker_url", ""),
+            )
+            if not session:
+                self._send_json(
+                    {
+                        "ok": False,
+                        "code": "pairing_invalid",
+                        "message": "Pairing code is invalid or expired",
+                    },
+                    status=400,
+                )
+                return True
+            self._send_json({"ok": True, "session": session, "devices": device_service.companion.list_devices()})
+            return True
+
+        if route == "session/refresh":
+            session = device_service.companion.refresh_session(
+                str(payload.get("refresh_token", "")).strip(),
+                str(payload.get("device_id", "")).strip(),
+            )
+            if not session:
+                self._send_json(
+                    {
+                        "ok": False,
+                        "code": "refresh_invalid",
+                        "message": "Refresh token is invalid",
+                    },
+                    status=401,
+                )
+                return True
+            self._send_json({"ok": True, "session": session})
+            return True
+
+        if route in {"messages/sync", "messages/send", "phone/call", "devices/register-push", "devices/list", "devices/revoke"}:
+            identity = self._authorize_companion_access()
+            if not identity:
+                return True
+
+            if route == "messages/sync":
+                self._send_json(build_companion_sync_payload(device_service, identity, payload))
+                return True
+
+            if route == "messages/send":
+                thread_id = str(payload.get("thread_id", "")).strip()
+                body = str(payload.get("body", "")).strip()
+                if not thread_id or not body:
+                    self._send_json(
+                        {"ok": False, "code": "invalid_request", "message": "thread_id and body are required"},
+                        status=400,
+                    )
+                    return True
+                message = device_service.comms.send_message(
+                    thread_id,
+                    device_service.accounts.state()["owner"]["name"],
+                    body,
+                    payload.get("client_message_id", ""),
+                )
+                device_service.companion.note_push_event(thread_id, message.get("id", ""))
+                self._send_json(
+                    {
+                        "ok": True,
+                        "message": {
+                            "id": message.get("id", ""),
+                            "status": message.get("status", "sent"),
+                        },
+                        "sync": build_companion_sync_payload(device_service, identity, {"thread_id": thread_id}),
+                    }
+                )
+                return True
+
+            if route == "phone/call":
+                target = str(payload.get("value", "")).strip()
+                if not target:
+                    self._send_json(
+                        {"ok": False, "code": "invalid_request", "message": "value is required"},
+                        status=400,
+                    )
+                    return True
+                device_service.comms.add_call(target)
+                self._send_json({"ok": True, "call": {"target": target, "status": "queued"}})
+                return True
+
+            if route == "devices/register-push":
+                push_token = str(payload.get("push_token", "")).strip()
+                result = device_service.companion.register_push_token(
+                    identity.get("device_id", ""),
+                    push_token,
+                    payload.get("platform", "android"),
+                )
+                if not result:
+                    self._send_json(
+                        {"ok": False, "code": "invalid_request", "message": "push_token is required"},
+                        status=400,
+                    )
+                    return True
+                self._send_json({"ok": True, "device": result})
+                return True
+
+            if route == "devices/list":
+                self._send_json({"ok": True, "devices": device_service.companion.list_devices()})
+                return True
+
+            if route == "devices/revoke":
+                target_device_id = str(payload.get("device_id", "")).strip()
+                revoked = device_service.companion.revoke_device(target_device_id)
+                if not revoked:
+                    self._send_json(
+                        {"ok": False, "code": "device_not_found", "message": "Unknown companion device"},
+                        status=404,
+                    )
+                    return True
+                self._send_json({"ok": True, "revoked": revoked, "devices": device_service.companion.list_devices()})
+                return True
+
+        return False
 
     def _send_html(self, body, status=200):
         self._send(
@@ -836,11 +1107,20 @@ body {{
             return
 
         if path == "/api/state":
+            if not self._authorize_api():
+                return
             self._send_json({"ok": True, "system": device_service.get_state()})
             return
 
+        companion_route = parse_companion_route(path)
+        if companion_route:
+            if self._handle_companion_route(companion_route, {}):
+                return
+
         app_id, subpath = parse_app_route(path)
         if app_id is not None:
+            if not self._authorize_api():
+                return
             self._send_app_response(
                 device_service.app_http(
                     app_id, "GET", subpath, query=parse_qs(parsed.query)
@@ -870,14 +1150,20 @@ body {{
             return
 
         if path == "/open":
+            if not self._authorize_api():
+                return
             self._send_json(device_service.open_app(data.get("app", "")))
             return
 
         if path == "/cmd":
+            if not self._authorize_api():
+                return
             self._send_json(device_service.handle_command(data.get("action", ""), data))
             return
 
         if path == "/api/system/sleep":
+            if not self._authorize_api():
+                return
             self._send_json(
                 {
                     "ok": True,
@@ -887,12 +1173,16 @@ body {{
             return
 
         if path == "/api/system/wake":
+            if not self._authorize_api():
+                return
             self._send_json(
                 {"ok": True, "system": device_service.wake(data.get("reason", "tap"))}
             )
             return
 
         if path == "/api/system/brightness":
+            if not self._authorize_api():
+                return
             brightness = data.get(
                 "brightness", device_service.get_state()["brightness"]
             )
@@ -902,10 +1192,14 @@ body {{
             return
 
         if path == "/api/system/reboot":
+            if not self._authorize_api():
+                return
             self._send_json({"ok": True, "reboot": device_service.reboot(data.get("reason", "manual"))})
             return
 
         if path == "/api/system/activity":
+            if not self._authorize_api():
+                return
             self._send_json({"ok": True, "system": device_service.remember_activity()})
             return
 
@@ -914,8 +1208,15 @@ body {{
             self._send_json({"ok": True})
             return
 
+        companion_route = parse_companion_route(path)
+        if companion_route:
+            if self._handle_companion_route(companion_route, data):
+                return
+
         app_id, subpath = parse_app_route(path)
         if app_id is not None:
+            if not self._authorize_api():
+                return
             self._send_app_response(
                 device_service.app_http(
                     app_id, "POST", subpath, query=parse_qs(parsed.query), payload=data

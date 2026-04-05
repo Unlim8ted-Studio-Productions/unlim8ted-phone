@@ -1,6 +1,7 @@
-﻿import importlib.util
+import importlib.util
 import json
 import os
+import secrets
 import shutil
 import tempfile
 import time
@@ -20,6 +21,7 @@ def _default_contacts():
 
 def _default_comms():
     return {
+        "sync_version": 1,
         "calls": [],
         "threads": [
             {
@@ -105,6 +107,17 @@ def _default_notifications():
     return {"items": []}
 
 
+def _default_companion(accounts_state=None):
+    owner = (accounts_state or _default_accounts())["owner"]
+    phone_id = owner.get("device_name", "Unlim8ted Phone").lower().replace(" ", "-")
+    return {
+        "phone_id": phone_id or "unlim8ted-phone",
+        "pairing_codes": [],
+        "devices": [],
+        "push_events": [],
+    }
+
+
 class StateStore:
     def __init__(self, state_dir):
         self.state_dir = state_dir
@@ -140,8 +153,6 @@ class StateStore:
                     replace_error = exc
                     time.sleep(0.05)
             if replace_error is not None:
-                # Some Windows processes temporarily lock the destination file.
-                # Fall back to an in-place overwrite instead of failing the request.
                 with open(path, "w", encoding="utf-8") as handle:
                     json.dump(value, handle, indent=2)
         finally:
@@ -178,6 +189,10 @@ class CommunicationsService:
     def _save(self, state):
         self.store.write(self.key, state)
 
+    def _bump_sync_version(self, state):
+        state["sync_version"] = int(state.get("sync_version", 0)) + 1
+        return state["sync_version"]
+
     def list_calls(self):
         return self._state()["calls"]
 
@@ -185,6 +200,7 @@ class CommunicationsService:
         state = self._state()
         state["calls"].insert(0, {"target": target, "timestamp": datetime.utcnow().isoformat() + "Z", "status": "ended"})
         state["calls"] = state["calls"][:30]
+        self._bump_sync_version(state)
         self._save(state)
         return state["calls"]
 
@@ -197,21 +213,40 @@ class CommunicationsService:
                 return thread
         return None
 
-    def send_message(self, thread_id, sender, body):
+    def send_message(self, thread_id, sender, body, client_message_id=""):
         state = self._state()
         thread = next((item for item in state["threads"] if item["id"] == thread_id), None)
         if not thread:
             thread = {"id": thread_id, "title": thread_id.title(), "participants": [thread_id.title()], "unread": 0, "messages": []}
             state["threads"].insert(0, thread)
-        thread["messages"].append({
+        message = {
             "id": f"msg-{len(thread['messages']) + 1}",
             "sender": sender,
             "body": body,
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "status": "sent",
-        })
+        }
+        if str(client_message_id or "").strip():
+            message["client_message_id"] = str(client_message_id).strip()
+        thread["messages"].append(message)
+        thread["unread"] = 0
+        self._bump_sync_version(state)
         self._save(state)
+        return message
+
+    def mark_thread_read(self, thread_id):
+        state = self._state()
+        thread = next((item for item in state["threads"] if item["id"] == thread_id), None)
+        if not thread:
+            return None
+        if int(thread.get("unread", 0)) != 0:
+            thread["unread"] = 0
+            self._bump_sync_version(state)
+            self._save(state)
         return thread
+
+    def sync_version(self):
+        return int(self._state().get("sync_version", 0))
 
 
 class AccountsService:
@@ -343,6 +378,213 @@ class NotificationsService:
             "messages": sum(thread.get("unread", 0) for thread in comms_service.list_threads()),
             "mail": sum(1 for item in mail_state["mailboxes"]["inbox"] if item.get("unread")),
         }
+
+
+class CompanionService:
+    def __init__(self, store):
+        self.store = store
+        self.key = "companion"
+
+    def _state(self):
+        accounts_state = self.store.read("accounts", _default_accounts())
+        return self.store.read(self.key, _default_companion(accounts_state))
+
+    def _save(self, state):
+        self.store.write(self.key, state)
+
+    def _now(self):
+        return int(time.time())
+
+    def _now_iso(self):
+        return datetime.utcnow().isoformat() + "Z"
+
+    def _new_token(self, size=32):
+        return secrets.token_urlsafe(size)
+
+    def _redact_push_token(self, token):
+        token = str(token or "")
+        if len(token) <= 8:
+            return token
+        return f"{token[:4]}...{token[-4:]}"
+
+    def create_pairing_code(self, label="Companion Device", ttl_sec=600):
+        state = self._state()
+        now = self._now()
+        state["pairing_codes"] = [
+            item for item in state.get("pairing_codes", [])
+            if int(item.get("expires_at_epoch", 0)) > now and not item.get("used")
+        ]
+        code = secrets.token_hex(3).upper()
+        record = {
+            "code": code,
+            "label": str(label or "Companion Device").strip() or "Companion Device",
+            "created_at": self._now_iso(),
+            "expires_at_epoch": now + max(60, int(ttl_sec)),
+            "used": False,
+        }
+        state["pairing_codes"].insert(0, record)
+        self._save(state)
+        return record
+
+    def complete_pairing(self, pairing_code, device_name, worker_url):
+        state = self._state()
+        now = self._now()
+        record = next(
+            (
+                item for item in state.get("pairing_codes", [])
+                if str(item.get("code", "")).upper() == str(pairing_code or "").upper()
+            ),
+            None,
+        )
+        if not record or record.get("used") or int(record.get("expires_at_epoch", 0)) <= now:
+            return None
+        device_id = self._new_token(12)
+        refresh_token = self._new_token(32)
+        access_token = self._new_token(24)
+        access_expires_at_epoch = now + 3600
+        device = {
+            "device_id": device_id,
+            "device_name": str(device_name or "").strip() or record.get("label", "Companion Device"),
+            "worker_url": str(worker_url or "").strip(),
+            "paired_at": self._now_iso(),
+            "last_seen_at": self._now_iso(),
+            "revoked": False,
+            "refresh_token": refresh_token,
+            "access_token": access_token,
+            "access_expires_at_epoch": access_expires_at_epoch,
+            "push_token": "",
+            "push_platform": "",
+            "push_updated_at": "",
+        }
+        record["used"] = True
+        state.setdefault("devices", []).append(device)
+        self._save(state)
+        return {
+            "phone_id": state.get("phone_id", "unlim8ted-phone"),
+            "phone_name": self.store.read("accounts", _default_accounts())["owner"].get("device_name", "Unlim8ted Phone"),
+            "device_id": device_id,
+            "device_name": device["device_name"],
+            "access_token": access_token,
+            "access_expires_at_epoch": access_expires_at_epoch,
+            "refresh_token": refresh_token,
+        }
+
+    def refresh_session(self, refresh_token, device_id):
+        state = self._state()
+        device = next(
+            (
+                item for item in state.get("devices", [])
+                if item.get("device_id") == device_id
+                and item.get("refresh_token") == refresh_token
+                and not item.get("revoked")
+            ),
+            None,
+        )
+        if not device:
+            return None
+        device["access_token"] = self._new_token(24)
+        device["access_expires_at_epoch"] = self._now() + 3600
+        device["last_seen_at"] = self._now_iso()
+        self._save(state)
+        return {
+            "device_id": device["device_id"],
+            "access_token": device["access_token"],
+            "access_expires_at_epoch": device["access_expires_at_epoch"],
+            "refresh_token": device["refresh_token"],
+        }
+
+    def authenticate_access_token(self, access_token):
+        state = self._state()
+        now = self._now()
+        device = next(
+            (
+                item for item in state.get("devices", [])
+                if item.get("access_token") == access_token
+                and not item.get("revoked")
+                and int(item.get("access_expires_at_epoch", 0)) > now
+            ),
+            None,
+        )
+        if not device:
+            return None
+        device["last_seen_at"] = self._now_iso()
+        self._save(state)
+        return {
+            "device_id": device["device_id"],
+            "device_name": device["device_name"],
+            "worker_url": device.get("worker_url", ""),
+        }
+
+    def register_push_token(self, device_id, push_token, platform="android"):
+        state = self._state()
+        device = next((item for item in state.get("devices", []) if item.get("device_id") == device_id and not item.get("revoked")), None)
+        if not device:
+            return None
+        device["push_token"] = str(push_token or "").strip()
+        device["push_platform"] = str(platform or "android").strip() or "android"
+        device["push_updated_at"] = self._now_iso()
+        self._save(state)
+        return {
+            "device_id": device["device_id"],
+            "push_token_masked": self._redact_push_token(device["push_token"]),
+            "push_platform": device["push_platform"],
+            "push_updated_at": device["push_updated_at"],
+        }
+
+    def list_devices(self):
+        state = self._state()
+        return [
+            {
+                "device_id": item.get("device_id", ""),
+                "device_name": item.get("device_name", "Companion Device"),
+                "paired_at": item.get("paired_at", ""),
+                "last_seen_at": item.get("last_seen_at", ""),
+                "revoked": bool(item.get("revoked")),
+                "push_token_masked": self._redact_push_token(item.get("push_token", "")),
+                "push_platform": item.get("push_platform", ""),
+            }
+            for item in state.get("devices", [])
+        ]
+
+    def revoke_device(self, target_device_id):
+        state = self._state()
+        device = next((item for item in state.get("devices", []) if item.get("device_id") == target_device_id), None)
+        if not device:
+            return None
+        device["revoked"] = True
+        device["access_token"] = ""
+        self._save(state)
+        return {
+            "device_id": device.get("device_id", ""),
+            "revoked": True,
+        }
+
+    def note_push_event(self, thread_id, message_id):
+        state = self._state()
+        state.setdefault("push_events", []).insert(
+            0,
+            {
+                "thread_id": str(thread_id or ""),
+                "message_id": str(message_id or ""),
+                "timestamp": self._now_iso(),
+            },
+        )
+        state["push_events"] = state["push_events"][:40]
+        self._save(state)
+
+    def latest_pairing_codes(self):
+        now = self._now()
+        state = self._state()
+        return [
+            {
+                "code": item.get("code", ""),
+                "label": item.get("label", ""),
+                "created_at": item.get("created_at", ""),
+                "expires_at_epoch": int(item.get("expires_at_epoch", 0)),
+            }
+            for item in state.get("pairing_codes", [])
+            if int(item.get("expires_at_epoch", 0)) > now and not item.get("used")
+        ]
 
 
 class AppRegistry:
